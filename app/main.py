@@ -1,10 +1,13 @@
 from fastapi import FastAPI, Depends
-from app.core.database import Base, engine, get_db
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.database import Base, engine, get_db
+from app.routers import riddles
+
 app = FastAPI(title="Nazo API", version="0.1.0")
 
+app.include_router(riddles.router)
 
 @app.get("/")
 def root():
