@@ -4,7 +4,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.database import Base, engine, get_db
-from app.routers import riddles
+from app.routers import riddles, auth
 
 app = FastAPI(title="Nazo API", version="0.1.0")
 app.add_middleware(
@@ -15,6 +15,7 @@ app.add_middleware(
 )
 
 app.include_router(riddles.router)
+app.include_router(auth.router)
 
 @app.get("/")
 def root():
