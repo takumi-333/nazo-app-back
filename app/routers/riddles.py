@@ -9,7 +9,7 @@ from app.core.security import get_current_user_id
 from app.models.answer import Answer
 from app.models.hint import Hint
 from app.models.riddle import Riddle
-from app.schemas.riddle import RandomRiddleResponse, RiddleCreateForm, RiddleCreateResponse
+from app.schemas.riddle import RandomRiddleResponse, RiddleCreateForm, RiddleCreateResponse, AnswerCheckRequest, AnswerCheckResponse
 from app.services.image_service import process_image
 from app.services.storage_service import upload_webp
 
@@ -120,3 +120,48 @@ async def create_riddle(
     await db.refresh(riddle)
 
     return RiddleCreateResponse(id=riddle.id, status=riddle.status)
+
+
+# ---- POST /riddles/{id}/check -------------------------------------------------------
+
+@router.post("/{riddle_id}/check", response_model=AnswerCheckResponse)
+async def check_answer(
+    riddle_id: str,
+    body: AnswerCheckRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    # 謎を取得
+    riddle = await db.get(Riddle, riddle_id)
+    if riddle is None:
+        raise HTTPException(status_code=404, detail="Riddle not found")
+    
+    # 諦めている場合、不正解で解説送信
+    if body.give_up:
+        return AnswerCheckResponse(
+            correct=False,
+            explanation=riddle.explanation,
+        )
+
+    # answer_text の空チェック
+    if not body.answer_text or not body.answer_text.strip():
+        raise HTTPException(status_code=400, detail="answer_text is required")
+ 
+    # answers テーブルで正解候補と照合（前後空白を正規化）
+    normalized_input = body.answer_text.strip()
+ 
+    result = await db.execute(
+        select(Answer).where(Answer.riddle_id == riddle_id)
+    )
+
+    answers = result.scalars().all()
+ 
+    correct = any(
+        a.answer_text.strip() == normalized_input
+        for a in answers
+    )
+ 
+    return AnswerCheckResponse(
+        correct=correct,
+        explanation=riddle.explanation,
+    )
+ 

@@ -28,3 +28,12 @@ class RiddleCreateForm(BaseModel):
 class RiddleCreateResponse(BaseModel):
     id: UUID
     status: str
+
+# --- POST /riddles/{id}/check ---
+class AnswerCheckRequest(BaseModel):
+    answer_text: str = ""
+    give_up: bool = False
+
+class AnswerCheckResponse(BaseModel):
+    correct: bool
+    explanation: str
