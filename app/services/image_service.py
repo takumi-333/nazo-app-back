@@ -1,11 +1,7 @@
 import io
 from PIL import Image
 
-
-# 保持するEXIFタグのホワイトリスト（何も保持しない = 完全削除）
-_SAFE_EXIF_TAGS: set[int] = set()
-
-MAX_DIMENSION = 2048  # 長辺の上限px
+MAX_DIMENSION = 1600
 WEBP_QUALITY = 85
 
 
