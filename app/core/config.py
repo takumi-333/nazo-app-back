@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str
     MINIO_BUCKET_NAME: str
 
+    DEV_MODE: bool = False
+
     class Config:
         env_file = ".env"
 
