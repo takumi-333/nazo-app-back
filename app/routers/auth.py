@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     response_model=TokenResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def register(body: RegisterRequest, db: Session = Depends(get_db)):
+async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     new_user = User(
         username=body.username,
         password_hash=hash_password(body.password),
@@ -34,20 +35,20 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.add(new_user)
     try:
         # ここでnew_user.idが確定
-        db.flush()
-        db.refresh(new_user)
+        await db.flush()
+        await db.refresh(new_user)
 
         token = create_access_token(new_user.id, new_user.role)
         
-        db.commit()
+        await db.commit()
     except IntegrityError:
-        db.rollback()
+        await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="そのユーザー名はすでに使用されています",
         )
     except Exception:
-        db.rollback()
+        await db.rollback()
         raise
 
     return TokenResponse(
@@ -57,8 +58,9 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == body.username).first()
+async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(User).where(User.username == body.username))
+    user = result.scalar_one_or_none()
 
     # ユーザーが存在しない場合もパスワード照合と同じエラーを返す（列挙攻撃防止）
     if not user or not verify_password(body.password, user.password_hash):
@@ -75,22 +77,22 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/logout", response_model=MessageResponse)
-def logout(
+async def logout(
     _current_user_id=Depends(get_current_user_id),
 ):
     return MessageResponse(success=True, message="ログアウトしました")
 
 
 @router.delete("/account", response_model=MessageResponse)
-def delete_account(
+async def delete_account(
     current_user_id=Depends(get_current_user_id),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-    user = db.get(User, current_user_id)
+    user = await db.get(User, current_user_id)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ユーザーが見つかりません")
 
     # riddles.creator_id は ON DELETE SET NULL なので物理削除するだけでよい
-    db.delete(user)
-    db.commit()
+    await db.delete(user)
+    await db.commit()
     return MessageResponse(success=True, message="アカウントを削除しました")
