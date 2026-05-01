@@ -12,3 +12,14 @@ def get_storage_client():
         config=Config(signature_version="s3v4"),
         region_name="us-east-1",
     )
+
+def get_public_storage_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.MINIO_PUBLIC_URL,
+        aws_access_key_id=settings.MINIO_ACCESS_KEY,
+        aws_secret_access_key=settings.MINIO_SECRET_KEY,
+        config=Config(signature_version="s3v4"),
+        region_name="us-east-1",
+    )
+

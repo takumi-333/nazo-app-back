@@ -11,7 +11,7 @@ class Riddle(Base):
  
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     creator_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    image_url = Column(Text, nullable=False)
+    image_key = Column(Text, nullable=False)
     explanation = Column(Text, nullable=True)
     status = Column(VARCHAR, nullable=False, default="draft")
     play_count = Column(Integer, nullable=False, default=0)

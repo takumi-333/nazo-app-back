@@ -11,7 +11,7 @@ from app.models.hint import Hint
 from app.models.riddle import Riddle
 from app.schemas.riddle import RandomRiddleResponse, RiddleCreateForm, RiddleCreateResponse, AnswerCheckRequest, AnswerCheckResponse
 from app.services.image_service import process_image
-from app.services.storage_service import upload_webp
+from app.services.storage_service import upload_webp, get_presigned_url
 
 router = APIRouter(prefix="/riddles", tags=["riddles"])
 
@@ -43,7 +43,7 @@ async def get_random_riddle(db: AsyncSession = Depends(get_db)) -> RandomRiddleR
 
     return RandomRiddleResponse(
         riddle_id=riddle.id,
-        image_url=riddle.image_url,
+        image_url=get_presigned_url(riddle.image_key),
         has_hint=riddle.has_hint,
     )
 
@@ -95,14 +95,14 @@ async def create_riddle(
 
     # --- R2アップロード ---
     try:
-        image_url = upload_webp(webp_bytes)
+        image_key = upload_webp(webp_bytes)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"画像のアップロードに失敗しました: {e}")
 
     # --- DB保存 ---
     riddle = Riddle(
         creator_id=creator_id,
-        image_url=image_url,
+        image_key=image_key,
         explanation=form.explanation,
         status="published",
         has_hint=form.hint is not None,
