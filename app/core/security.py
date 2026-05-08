@@ -46,6 +46,15 @@ def get_current_user_id(
     payload = decode_access_token(credentials.credentials)
     return UUID(payload["sub"])
 
+def get_optional_user_id(
+    credentials: HTTPAuthorizationCredentials | None = Depends(
+        HTTPBearer(auto_error=False) 
+    ),
+) -> UUID | None:
+    if credentials is None:
+        return None
+    payload = decode_access_token(credentials.credentials)
+    return UUID(payload["sub"])
 
 def get_current_role(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
