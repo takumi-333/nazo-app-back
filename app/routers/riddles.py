@@ -5,11 +5,16 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import get_current_user_id
+from app.core.security import get_current_user_id, get_optional_user_id
+
+# import models
 from app.models.answer import Answer
 from app.models.hint import Hint
 from app.models.riddle import Riddle
-from app.schemas.riddle import RandomRiddleResponse, RiddleCreateForm, RiddleCreateResponse, AnswerCheckRequest, AnswerCheckResponse
+from app.models.play_logs import PlayLog
+from app.models.rating import Rating
+
+from app.schemas.riddle import RandomRiddleResponse, RiddleCreateForm, RiddleCreateResponse, AnswerCheckRequest, AnswerCheckResponse, RiddleSubmitRequest, RiddleSubmitResponse
 from app.services.image_service import process_image
 from app.services.storage_service import upload_webp, get_presigned_url
 
@@ -164,4 +169,70 @@ async def check_answer(
         correct=correct,
         explanation=riddle.explanation,
     )
+
+
+# ---- POST /riddles/{id}/submit -------------------------------------------------------
+
+@router.post(
+    "/{riddle_id}/submit",
+    response_model=RiddleSubmitResponse,
+    responses={
+        400: {"description": "不正なリクエスト"},
+        403: {"description": "権限がない"},
+        404: {"description": "謎が存在しない"},
+    },
+    summary="謎の解答結果を送信する"
+)
+async def submit_riddle_result(
+    riddle_id: str,
+    body: RiddleSubmitRequest,
+    db: AsyncSession = Depends(get_db),
+    user_id: str | None = Depends(get_optional_user_id)
+) -> RiddleSubmitResponse:
+    
+    # 謎の取得
+    riddle = await db.get(Riddle, riddle_id)
+    if riddle is None:
+        raise HTTPException(status_code=404, detail="Riddle not found")
+ 
+    # play_log の記録
+    play_log = PlayLog(
+        riddle_id=riddle_id,
+        user_id=user_id,
+        correct=body.is_correct,
+        duration_ms=body.duration_ms,
+        used_hint=body.used_hint,
+        attempt_count=body.attempt_count,
+    )
+    db.add(play_log)
+    # play_log.id を確定させる
+    await db.flush()
+ 
+    # rating の記録
+    rating = Rating(
+        play_log_id=play_log.id,
+        riddle_id=riddle_id,
+        user_id=user_id,
+        score=body.score,
+    )
+    db.add(rating)
+ 
+    try:
+        await db.flush()
+    except IntegrityError:
+        # 登録ユーザーが同じ謎を再評価しようとした場合
+        await db.rollback()
+        raise HTTPException(status_code=403, detail="Already rated this riddle")
+ 
+    # 統計情報の更新
+    riddle.play_count = (riddle.play_count or 0) + 1
+ 
+    # avg_score_result = await db.execute(
+    #     select(func.avg(Rating.score)).where(Rating.riddle_id == riddle_id)
+    # )
+    # riddle.avg_score = avg_score_result.scalar()
+ 
+    await db.commit()
+    
+    return RiddleSubmitResponse(success=True)
  

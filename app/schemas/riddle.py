@@ -37,3 +37,14 @@ class AnswerCheckRequest(BaseModel):
 class AnswerCheckResponse(BaseModel):
     correct: bool
     explanation: str
+
+# --- POST /riddles/{id}/submit ---
+class RiddleSubmitRequest(BaseModel):
+    score: int = Field(..., ge=1, le=5)
+    is_correct: bool
+    duration_ms: int = Field(..., ge=0)
+    used_hint: bool
+    attempt_count: int = Field(..., ge=1)
+
+class RiddleSubmitResponse(BaseModel):
+    success: bool
