@@ -44,7 +44,7 @@ class RiddleSubmitRequest(BaseModel):
     is_correct: bool
     duration_ms: int = Field(..., ge=0)
     used_hint: bool
-    attempt_count: int = Field(..., ge=1)
+    attempt_count: int = Field(..., ge=0)
 
 class RiddleSubmitResponse(BaseModel):
     success: bool
